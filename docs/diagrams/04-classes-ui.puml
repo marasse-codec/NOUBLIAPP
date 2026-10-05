@@ -1,0 +1,117 @@
+@startuml 04-classes-ui
+title Noubli - Diagramme de classes : couche présentation (MVVM)
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "ui (Jetpack Compose)" #F2F7FF {
+  class NoubliNavHost <<Composable>> {
+    routes : auth, home, zone_edit/{id}, history
+  }
+  class AuthScreen <<Composable>>
+  class HomeScreen <<Composable>>
+  class ZoneEditScreen <<Composable>>
+  class ZoneItemsEditor <<Composable>>
+  class HistoryScreen <<Composable>>
+  class MonitoringCard <<Composable>>
+  class ZoneCard <<Composable>>
+  class "NoubliTopBar / EmptyState / ErrorText" as Common <<Composable>>
+  class "rememberPermissionRequest" as Perm <<Composable>>
+}
+
+package "ui (ViewModels et états)" #F4FBF4 {
+  class AuthViewModel {
+    +state : StateFlow<AuthUiState>
+    +toggleMode()
+    +submit(username, password)
+  }
+  class AuthUiState <<data>> {
+    +isRegisterMode : Boolean
+    +loading : Boolean
+    +error : String?
+  }
+  class HomeViewModel {
+    +zones : StateFlow<List<Zone>>
+    +setZoneActive(zone, active)
+    +deleteZone(zone)
+    +logout()
+  }
+  class ZoneEditViewModel {
+    +state : StateFlow<ZoneEditUiState>
+    +onNameChange() / onLatitudeChange() / onLongitudeChange()
+    +onRadiusChange() / onActiveChange()
+    +addItem(label) / removeItem(index)
+    +useCurrentLocation()
+    +save()
+  }
+  class ZoneEditUiState <<data>> {
+    +form : ZoneForm
+    +isNew : Boolean
+    +locating : Boolean
+    +saving : Boolean
+    +saved : Boolean
+    +error : String?
+  }
+  class ZoneForm <<data>> {
+    +name : String
+    +latitude : String
+    +longitude : String
+    +radius : Float
+    +items : List<String>
+    +isActive : Boolean
+  }
+  class HistoryViewModel {
+    +events : StateFlow<List<AlertEvent>>
+    +clear()
+  }
+}
+
+package "couches inférieures" #FFF8F0 {
+  class AuthRepository
+  class ZoneRepository
+  class AlertRepository
+  class SessionStore
+  class CurrentLocationProvider
+  class MonitoringController
+  object MonitoringStatus
+  class Validators
+}
+
+NoubliNavHost --> AuthScreen
+NoubliNavHost --> HomeScreen
+NoubliNavHost --> ZoneEditScreen
+NoubliNavHost --> HistoryScreen
+NoubliNavHost ..> SessionStore : observe la session\n(connexion / déconnexion)
+
+HomeScreen --> MonitoringCard
+HomeScreen --> ZoneCard
+ZoneEditScreen --> ZoneItemsEditor
+HomeScreen ..> Perm
+ZoneEditScreen ..> Perm
+AuthScreen ..> Common
+HomeScreen ..> Common
+ZoneEditScreen ..> Common
+HistoryScreen ..> Common
+
+AuthScreen --> AuthViewModel
+HomeScreen --> HomeViewModel
+ZoneEditScreen --> ZoneEditViewModel
+HistoryScreen --> HistoryViewModel
+HomeScreen ..> MonitoringController : start / stop
+HomeScreen ..> MonitoringStatus : observe
+
+AuthViewModel --> AuthUiState
+AuthViewModel --> AuthRepository
+HomeViewModel --> ZoneRepository
+HomeViewModel --> AuthRepository
+HomeViewModel --> SessionStore
+ZoneEditViewModel --> ZoneEditUiState
+ZoneEditUiState *-- ZoneForm
+ZoneEditViewModel --> ZoneRepository
+ZoneEditViewModel --> SessionStore
+ZoneEditViewModel --> CurrentLocationProvider
+ZoneEditViewModel ..> Validators
+HistoryViewModel --> AlertRepository
+HistoryViewModel --> SessionStore
+
+@enduml

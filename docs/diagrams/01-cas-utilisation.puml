@@ -1,0 +1,71 @@
+@startuml 01-cas-utilisation
+title Noubli - Diagramme de cas d'utilisation
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "Utilisateur" as U
+actor "Localisation Android\n(GPS / réseau)" as GPS <<système>>
+actor "Notifications Android" as NOTIF <<système>>
+
+rectangle "Noubli (MVP)" {
+  ' --- Compte local ---
+  usecase "S'inscrire" as UC_REG
+  usecase "Se connecter" as UC_LOG
+  usecase "Se déconnecter" as UC_OUT
+
+  ' --- Gestion des zones ---
+  usecase "Créer / modifier une zone" as UC_ZONE
+  usecase "Définir la position de la zone" as UC_POS
+  usecase "Utiliser ma position actuelle" as UC_GPS
+  usecase "Saisir les coordonnées" as UC_MAN
+  usecase "Gérer les objets à ne pas oublier" as UC_ITEMS
+  usecase "Activer / désactiver une zone" as UC_TOGGLE
+  usecase "Supprimer une zone" as UC_DEL
+
+  ' --- Surveillance et alertes ---
+  usecase "Activer / arrêter la surveillance" as UC_MON
+  usecase "Accorder les permissions\n(localisation, notifications)" as UC_PERM
+  usecase "Détecter l'éloignement d'une zone" as UC_DETECT
+  usecase "Recevoir une alerte d'oubli" as UC_ALERT
+  usecase "Acquitter l'alerte (« J'ai tout »)" as UC_ACK
+
+  ' --- Historique ---
+  usecase "Consulter l'historique" as UC_HIST
+  usecase "Vider l'historique" as UC_CLEAR
+}
+
+U --> UC_REG
+U --> UC_LOG
+U --> UC_OUT
+U --> UC_ZONE
+U --> UC_TOGGLE
+U --> UC_DEL
+U --> UC_MON
+U --> UC_ALERT
+U --> UC_ACK
+U --> UC_HIST
+U --> UC_CLEAR
+
+UC_ZONE ..> UC_POS : <<include>>
+UC_ZONE ..> UC_ITEMS : <<include>>
+UC_GPS ..> UC_POS : <<extend>>
+UC_MAN ..> UC_POS : <<extend>>
+UC_GPS ..> UC_PERM : <<include>>
+UC_MON ..> UC_PERM : <<include>>
+UC_MON ..> UC_DETECT : <<include>>
+UC_DETECT ..> UC_ALERT : <<include>>
+UC_ACK ..> UC_ALERT : <<extend>>
+UC_CLEAR ..> UC_HIST : <<extend>>
+
+GPS --> UC_DETECT
+GPS --> UC_GPS
+NOTIF --> UC_ALERT
+
+note right of UC_DETECT
+  Règle métier : alerte uniquement lors du
+  passage « dans la zone » -> « hors zone »,
+  après 2 mesures GPS consécutives à l'extérieur.
+end note
+
+@enduml

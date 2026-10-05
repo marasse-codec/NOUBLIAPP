@@ -1,0 +1,75 @@
+@startuml 08-architecture-couches
+title Noubli - Architecture logicielle en couches (MVVM, application 100 % locale)
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName SansSerif
+
+package "Présentation (Jetpack Compose)" as PRES #E8F1FF {
+  [Écrans Compose\nAuth · Accueil · Zone · Historique] as Screens
+  [ViewModels + états UI\n(StateFlow)] as VMs
+  [NoubliNavHost\n(navigation selon la session)] as Nav
+}
+
+package "Domaine (Kotlin pur, testé en JVM)" as DOM #EAF7EA {
+  [Modèles\nUser · Zone · ReminderItem · AlertEvent] as Models
+  [ProximityEvaluator\n+ GeoMath] as Prox
+  [Validators] as Valid
+  [PasswordHasher\n(PBKDF2)] as Hash
+}
+
+package "Données" as DATA #FFF6E5 {
+  [Repositories\nAuth · Zone · Alert] as Repos
+  [Room : DAO + entités\n(SQLite)] as Room
+  [SessionStore\n(SharedPreferences)] as Session
+}
+
+package "Services Android (arrière-plan)" as SVC #FDECEC {
+  [MonitoringService\n(premier plan)] as Service
+  [CurrentLocationProvider] as LocProv
+  [NotificationHelper] as Notif
+  [AlertActionReceiver] as Receiver
+}
+
+package "Système Android" as OS #EEEEEE {
+  [LocationManager\n(GPS / réseau)] as LM
+  [NotificationManager] as NM
+  database "noubli.db" as DB
+}
+
+[AppContainer\n(injection manuelle)] as DI
+
+Nav --> Screens
+Screens --> VMs
+VMs --> Repos
+VMs --> Valid
+VMs --> LocProv
+Screens ..> Service : démarre / arrête\n(MonitoringController)
+
+Repos --> Models
+Repos --> Room
+Repos --> Hash
+Repos --> Session
+Room --> DB
+
+Service --> Prox
+Service --> Repos
+Service --> Notif
+Service --> LM
+LocProv --> LM
+Notif --> NM
+Receiver --> Repos
+NM ..> Receiver : « J'ai tout »
+
+Prox --> Models
+
+DI ..> Repos : construit
+DI ..> Notif : construit
+DI ..> LocProv : construit
+
+note bottom of PRES
+  Règle de dépendance : chaque couche ne connaît que
+  celles situées en dessous ; le domaine ne dépend
+  d'aucune API Android.
+end note
+
+@enduml

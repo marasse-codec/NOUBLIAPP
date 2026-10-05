@@ -1,0 +1,46 @@
+@startuml 05-flux-authentification
+title Noubli - Flux : authentification (comptes locaux)
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+
+start
+:Lancement de l'application;
+if (Utilisateur déjà connecté ?\n(SessionStore.userId != null)) then (oui)
+  :Afficher l'écran d'accueil;
+  stop
+else (non)
+  :Afficher l'écran d'authentification;
+endif
+
+repeat
+  if (Mode choisi ?) then (Créer un compte)
+    :Normaliser le nom (minuscules, sans espaces);
+    if (Nom valide ?\n3-30 car. : a-z 0-9 _ . -) then (non)
+      :Erreur « Nom d'utilisateur invalide »;
+    elseif (Mot de passe >= 6 caractères ?) then (non)
+      :Erreur « Mot de passe trop court »;
+    elseif (Nom déjà utilisé ?) then (oui)
+      :Erreur « Ce nom existe déjà »;
+    else (non)
+      :Générer un sel aléatoire (16 octets);
+      :Calculer l'empreinte PBKDF2-SHA256\n(120 000 itérations, hors thread principal);
+      :Enregistrer l'utilisateur\n(app_user : nom, empreinte, sel);
+      :Ouvrir la session\n(SessionStore.setUser(id));
+      :Afficher l'écran d'accueil;
+      stop
+    endif
+  else (Se connecter)
+    :Rechercher l'utilisateur par nom;
+    if (Utilisateur trouvé ET\nempreinte identique ?) then (oui)
+      :Ouvrir la session\n(SessionStore.setUser(id));
+      :Afficher l'écran d'accueil;
+      stop
+    else (non)
+      :Erreur « Identifiants incorrects »\n(sans préciser lequel est faux);
+    endif
+  endif
+repeat while (Nouvelle tentative ?) is (oui)
+->non;
+stop
+
+@enduml

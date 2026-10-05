@@ -1,0 +1,49 @@
+@startuml 06-flux-creation-zone
+title Noubli - Flux : création d'une zone avec ses objets
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+
+start
+:Accueil : appuyer sur « + »;
+:Ouvrir le formulaire « Nouvelle zone »;
+:Saisir le nom (ex. Maison);
+
+repeat
+  :Saisir un objet (ex. clés);
+  :Ajouter à la liste;
+repeat while (Autre objet à ajouter ?) is (oui) not (non)
+
+if (Comment définir la position ?) then (Position actuelle)
+  if (Permission de localisation\naccordée ?) then (non)
+    :Demander la permission;
+  else (oui)
+  endif
+  if (Permission obtenue ?) then (oui)
+    :Lire la position (GPS, 20 s max,\nprécision <= 30 m sinon dernière position connue);
+    if (Position obtenue ?) then (oui)
+      :Remplir latitude et longitude;
+    else (non)
+      :Message « Position indisponible,\nactive le GPS et réessaie »;
+    endif
+  else (non)
+    :Message « Autorise la localisation »;
+  endif
+else (Saisie manuelle)
+  :Taper latitude et longitude;
+endif
+
+:Régler le rayon d'alerte (20 à 500 m, défaut 50 m);
+:Appuyer sur « Enregistrer »;
+
+if (Formulaire valide ?\nnom, >= 1 objet, coordonnées, rayon) then (non)
+  :Afficher le message d'erreur;
+  :Retour au formulaire;
+  detach
+else (oui)
+  :Transaction Room : enregistrer la zone\net remplacer ses objets;
+  :Fermer le formulaire;
+  :La liste des zones se met à jour\nautomatiquement (Flow);
+  stop
+endif
+
+@enduml

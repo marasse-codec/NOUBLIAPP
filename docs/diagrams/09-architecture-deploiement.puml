@@ -1,0 +1,48 @@
+@startuml 09-architecture-deploiement
+title Noubli - Architecture de déploiement (tout reste sur le téléphone)
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+
+node "Poste de développement / GitHub Actions" as DEV {
+  artifact "Projet Gradle (Kotlin)" as SRC
+  artifact "app-debug.apk" as APK
+  SRC --> APK : ./gradlew assembleDebug
+}
+
+node "Smartphone Android 8.0+ (API 26)" as PHONE {
+
+  node "Processus « com.noubli.app »" as PROC {
+    component "MainActivity\n(UI Compose)" as UI
+    component "MonitoringService\n(service au premier plan)" as SVC
+    component "AlertActionReceiver" as REC
+    database "noubli.db\n(SQLite via Room)" as DB
+    storage "SharedPreferences\n(session)" as PREFS
+  }
+
+  component "LocationManager\n(GPS + réseau)" as LM
+  component "NotificationManager\n(son, vibration)" as NM
+}
+
+cloud "Satellites GPS\n(+ antennes / Wi-Fi)" as SAT
+
+APK --> PHONE : installation\n(adb install ou fichier APK)
+
+UI --> DB : lecture / écriture
+UI --> PREFS
+SVC --> DB : zones actives,\nhistorique
+SVC --> LM : mises à jour de position
+SVC --> NM : alerte d'oubli
+REC --> DB : acquittement
+NM --> REC : bouton « J'ai tout »
+LM <-- SAT
+
+note right of PHONE
+  Aucun serveur, aucun compte en ligne :
+  les comptes, zones, objets et historiques
+  restent dans noubli.db sur l'appareil.
+  Permissions : localisation précise,
+  service au premier plan (location),
+  notifications (Android 13+).
+end note
+
+@enduml

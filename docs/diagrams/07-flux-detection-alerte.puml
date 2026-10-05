@@ -1,0 +1,65 @@
+@startuml 07-flux-detection-alerte
+title Noubli - Flux : surveillance GPS, détection d'éloignement et alerte
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+
+|Utilisateur|
+start
+:Activer l'interrupteur « Surveillance »;
+
+|Application (écran d'accueil)|
+if (Localisation précise accordée ?) then (non)
+  :Demander les permissions\n(localisation + notifications);
+endif
+if (Localisation accordée ?) then (non)
+  :Message « Localisation nécessaire »;
+  stop
+elseif (GPS activé sur l'appareil ?) then (non)
+  :Message « Active la localisation (GPS) »;
+  stop
+else (oui)
+  :Démarrer MonitoringService;
+endif
+
+|Service de surveillance|
+:Afficher la notification permanente\n(service au premier plan, type « location »);
+:S'abonner aux zones actives de l'utilisateur\n(ignorer les zones sans objet);
+:Écouter le GPS et le réseau (toutes les 5 s);
+
+while (Surveillance active ?\n(pas d'arrêt ni de déconnexion)) is (oui)
+  :Nouvelle position reçue;
+  if (Précision <= 80 m ?) then (non)
+    :Ignorer la mesure;
+  else (oui)
+    :Pour chaque zone : calculer la distance\nau centre (haversine);
+    if (Distance <= rayon ?) then (oui)
+      :État = DANS LA ZONE\n(alerte armée, compteur = 0);
+    elseif (Distance > rayon + 50 % de la précision ?) then (oui)
+      if (État précédent ?) then (DANS LA ZONE)
+        :Compteur de mesures dehors + 1;
+        if (Compteur >= 2 ?) then (oui)
+          :État = HORS DE LA ZONE;
+          :Enregistrer l'alerte (alert_event);
+          :Notification : son + vibration\n« Tu t'éloignes de Maison ! N'oublie pas : clés, … »;
+          |Utilisateur|
+          if (Appuie sur « J'ai tout » ?) then (oui)
+            :Acquitter l'alerte (acknowledged_at);
+          else (non)
+            :Alerte conservée « en attente »\ndans l'historique;
+          endif
+          |Service de surveillance|
+        else (non)
+        endif
+      else (UNKNOWN ou déjà HORS)
+        :Mémoriser « hors zone »\nsans alerte;
+      endif
+    else (non)
+      :Zone ambiguë : aucun changement;
+    endif
+  endif
+endwhile (non)
+
+:Retirer les écoutes GPS\net fermer le service;
+stop
+
+@enduml
