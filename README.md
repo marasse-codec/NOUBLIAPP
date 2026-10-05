@@ -71,3 +71,4 @@ dépendances injectées par constructeur (`AppContainer`).
 
 Pour régénérer les images : `java -jar plantuml.jar -tpng -o png docs/diagrams/*.puml`.
 # Noubliapp
+# Noubliapp
