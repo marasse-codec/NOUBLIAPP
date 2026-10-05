@@ -20,8 +20,8 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Installer le SDK Android (licences incluses)
-        uses: android-actions/setup-android@v3
+      # Pas d'installation du SDK Android : il est déjà présent sur ubuntu-latest
+      # (ANDROID_HOME) et Gradle télécharge lui-même les composants manquants.
 
       - name: Tests unitaires puis APK de test
         run: |
