@@ -1,0 +1,35 @@
+# Compile l'APK de test et lance les tests unitaires à chaque push (ou à la demande).
+# L'APK est ensuite téléchargeable dans l'onglet « Actions » du dépôt GitHub.
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Installer le SDK Android (licences incluses)
+        uses: android-actions/setup-android@v3
+
+      - name: Tests unitaires puis APK de test
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest assembleDebug --no-daemon
+
+      - name: Publier l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: noubli-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
