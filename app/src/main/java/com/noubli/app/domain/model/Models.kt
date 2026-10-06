@@ -53,3 +53,13 @@ data class GeoFix(
 
 /** Résultat de la détection : l'utilisateur vient de quitter [zone]. */
 data class ZoneExit(val zone: Zone, val distanceM: Int)
+
+/** Mesure enregistrée pendant un suivi (trajet de test) : sert à régler et rejouer les algorithmes. */
+data class TracePoint(
+    val timeMs: Long,
+    val latitude: Double,
+    val longitude: Double,
+    val sigmaM: Double,
+    val distanceM: Double,
+    val pathM: Double
+)

@@ -6,7 +6,8 @@ package com.noubli.app.domain
  */
 object Validators {
 
-    const val MIN_RADIUS_M = 20
+    /** 1 m : le moteur v2 affiche la précision réelle et reste prudent (voir ConfidenceExitPolicy). */
+    const val MIN_RADIUS_M = 1
     const val MAX_RADIUS_M = 500
     const val DEFAULT_RADIUS_M = 50
     const val MAX_ITEMS = 30

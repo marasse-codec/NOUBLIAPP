@@ -1,0 +1,29 @@
+@startsalt 13-maquette-suivi-direct
+title Noubli v2 - Maquette : écran « Suivi en direct » (exemple de valeurs)
+{+
+  <b>Suivi en direct : Maison</b>                     [ X ]
+  ==
+  { <color:green><b>DANS LA ZONE</b></color> | marge : <b>-1,8 m</b> | précision <b>±2,1 m</b> }
+  --
+  {SI
+    . . . . . . . . . . . . . . . . . . . . . . . .
+    . .  <&target>  <b>RADAR</b>  (échelle auto : 1 carreau = 2 m)  . .
+    . .  ligne pleine : rayon de la zone (5 m)  . .
+    . .  ligne pointillée : seuil de déclenchement (rayon + k × σ)  . .
+    . .  point + halo : position estimée et son incertitude  . .
+    . .  trait : trajet calculé (GPS + pas)  . .
+    . . . . . . . . . . . . . . . . . . . . . . . .
+  }
+  --
+  {#
+    Distance au centre | <b>3,2 m</b>
+    Rayon de la zone | <b>5 m</b>
+    Seuil de déclenchement | <b>8,1 m</b>
+    Déplacement calculé | <b>12,4 m (18 pas)</b>
+    Longueur de foulée | <b>0,69 m (étalonnée)</b>
+    Capteurs actifs | <color:green>GPS</color> · <color:green>Pas</color> · <color:green>Cap</color>
+  }
+  --
+  { [Réinitialiser le point de départ] | [Enregistrer le trajet] }
+}
+@endsalt

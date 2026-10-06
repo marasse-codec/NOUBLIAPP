@@ -45,8 +45,8 @@ class ValidatorsTest {
 
     @Test
     fun `rayon dans les bornes`() {
-        assertNotNull(Validators.radiusError(19))
-        assertNull(Validators.radiusError(20))
+        assertNotNull(Validators.radiusError(0))
+        assertNull(Validators.radiusError(1))
         assertNull(Validators.radiusError(500))
         assertNotNull(Validators.radiusError(501))
     }

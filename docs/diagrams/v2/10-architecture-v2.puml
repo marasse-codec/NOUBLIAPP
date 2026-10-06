@@ -1,0 +1,95 @@
+@startuml 10-architecture-v2
+title Noubli v2 - Architecture cible : capteurs interchangeables (ports et adaptateurs)
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName SansSerif
+
+package "Présentation" as PRES #E8F1FF {
+  [Écrans existants\n(Accueil, Zone, Historique)] as Screens
+  [NOUVEAU : Suivi en direct\n(radar Canvas + chiffres)] as Live
+  [LiveViewModel] as LiveVM
+}
+
+package "Moteur de suivi (NOUVEAU)" as ENG #FFF6E5 {
+  [TrackingEngine\n(orchestre le pipeline)] as Engine
+  [TrackingBus\n(StateFlow<TrackingSnapshot>)] as Bus
+  [DetectionConfig\n(tous les réglages)] as Config
+  [SourceFactory\n(choisit les adaptateurs\nselon l'appareil)] as Factory
+}
+
+package "Domaine pur (testé en JVM)" as DOM #EAF7EA {
+  interface "PositionSource" as IPos
+  interface "StepSource" as IStep
+  interface "HeadingSource" as IHead
+  interface "PositionFusion" as IFus
+  interface "ExitPolicy" as IPol
+  interface "AlertChannel" as IAlert
+  [KalmanPdrFusion\n(GPS + pas + cap)] as Kalman
+  [GpsOnlyFusion\n(repli, = v1 lissée)] as GpsOnly
+  [ConfidenceExitPolicy\n(distance - rayon > k·σ)] as Conf
+  [LegacyThresholdPolicy\n(= ProximityEvaluator v1)] as Legacy
+  [StrideCalibrator\n(longueur de foulée)] as Stride
+}
+
+package "Adaptateurs Android" as AD #FDECEC {
+  [FusedLocationSource\n(Google Play Services)] as Fused
+  [SystemLocationSource\n(LocationManager, repli)] as Sys
+  [SensorStepSource\n(TYPE_STEP_DETECTOR)] as StepAd
+  [RotationVectorHeadingSource\n(boussole fusionnée)] as HeadAd
+  [NotificationAlertChannel] as NotifAd
+}
+
+package "Test et réglage (NOUVEAU)" as TST #F3EAFB {
+  [ReplayPlayer\n(rejoue un trajet enregistré)] as Replay
+  [TraceRecorder\n(enregistre GPS + pas + cap)] as Rec
+  [Simulateur de trajets\n(marche, arrêts, bruit GPS)] as Sim
+}
+
+package "Données existantes" as DATA #EEEEEE {
+  [Repositories + Room] as Repos
+}
+
+Screens --> Live
+Live --> LiveVM
+LiveVM --> Bus
+Screens ..> Engine : démarre / arrête\n(via MonitoringService)
+
+Engine --> IPos
+Engine --> IStep
+Engine --> IHead
+Engine --> IFus
+Engine --> IPol
+Engine --> IAlert
+Engine --> Bus
+Engine --> Repos : zones actives,\nhistorique
+Engine --> Config
+Factory ..> Engine : fournit les adaptateurs
+
+Kalman ..|> IFus
+GpsOnly ..|> IFus
+Conf ..|> IPol
+Legacy ..|> IPol
+Kalman --> Stride
+
+Fused ..|> IPos
+Sys ..|> IPos
+Replay ..|> IPos
+Replay ..|> IStep
+Replay ..|> IHead
+Sim ..|> IPos
+Sim ..|> IStep
+Sim ..|> IHead
+StepAd ..|> IStep
+HeadAd ..|> IHead
+NotifAd ..|> IAlert
+Rec --> IPos
+Rec --> IStep
+Rec --> IHead
+
+note bottom of DOM
+  Ajouter un capteur, un filtre ou une règle de sortie
+  = ajouter une classe qui implémente le bon port.
+  Aucun autre fichier ne change (principe ouvert / fermé).
+end note
+
+@enduml

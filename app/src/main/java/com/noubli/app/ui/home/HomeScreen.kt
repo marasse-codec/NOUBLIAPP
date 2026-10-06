@@ -45,6 +45,7 @@ fun HomeScreen(
     container: AppContainer,
     onAddZone: () -> Unit,
     onEditZone: (Long) -> Unit,
+    onOpenLive: (Long) -> Unit,
     onOpenHistory: () -> Unit
 ) {
     val context = LocalContext.current
@@ -119,6 +120,7 @@ fun HomeScreen(
                     ZoneCard(
                         zone = zone,
                         onActiveChange = { viewModel.setZoneActive(zone, it) },
+                        onLive = { onOpenLive(zone.id) },
                         onEdit = { onEditZone(zone.id) },
                         onDelete = { zoneToDelete = zone }
                     )

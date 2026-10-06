@@ -1,0 +1,71 @@
+@startuml 12-flux-fusion-decision
+title Noubli v2 - Flux : de la mesure brute à la décision de sortie
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+
+|Capteurs|
+start
+fork
+  :Position GPS (Fused, 1 Hz)\n+ précision annoncée;
+fork again
+  :Pas détecté\n(cadence 0,5 à 3,5 pas/s);
+fork again
+  :Cap (vecteur de rotation)\n+ précision du cap;
+end fork
+
+|Fusion (KalmanPdrFusion)|
+if (Type de mesure ?) then (Pas)
+  :Avancer l'estimation d'une foulée\ndans la direction du cap;
+  :Augmenter l'incertitude σ\n(dérive des pas + erreur de cap);
+else (GPS)
+  if (Précision du fix <= seuil max ?) then (non)
+    :Ignorer la mesure;
+    stop
+  else (oui)
+    if (Fix très éloigné de l'estimation\n(plus de 3 σ) ?) then (oui)
+      :Gonfler le bruit du fix\n(valeur aberrante probable);
+    else (non)
+    endif
+    :Recaler l'estimation sur le GPS\n(gain = σ² / (σ² + précision²));
+    :Réduire σ;
+    if (Marche GPS fiable\nsur 20 m ou plus ?) then (oui)
+      :Affiner la longueur de foulée\n(StrideCalibrator);
+    else (non)
+    endif
+  endif
+endif
+:Estimation = position + σ + sources actives;
+
+|Décision (ExitPolicy)|
+:Pour chaque zone active avec objets :\ndistance au centre d;
+:marge = d - rayon\nseuil de déclenchement = rayon + k × σ;
+if (d <= rayon ?) then (oui)
+  :État DANS LA ZONE\n(alerte armée, compteur = 0);
+elseif (d > rayon + k × σ ?) then (oui)
+  if (État précédent = DANS LA ZONE ?) then (oui)
+    :compteur + 1;
+    if (compteur >= confirmations ?) then (oui)
+      :État HORS ZONE\nSORTIE CONFIRMÉE;
+    else (non)
+      :Attendre la mesure suivante;
+    endif
+  else (non)
+    :Mémoriser « hors zone »\nsans alerte;
+  endif
+else (non)
+  :État INCERTAIN\n(aucun changement);
+endif
+
+|Moteur (TrackingEngine)|
+fork
+  :Publier TrackingSnapshot\n(écran radar en direct);
+fork again
+  if (Sortie confirmée ?) then (oui)
+    :Enregistrer l'alerte (historique);
+    :AlertChannel : notification\nson + vibration + objets;
+  else (non)
+  endif
+end fork
+stop
+
+@enduml

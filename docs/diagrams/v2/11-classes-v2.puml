@@ -1,0 +1,205 @@
+@startuml 11-classes-v2
+title Noubli v2 - Diagramme de classes : ports, fusion, décision et suivi en direct
+note as N1
+  Étape 2 livrée : GpsOnlyFusion, ConfidenceExitPolicy, LegacyThresholdPolicy,
+  moteur, SystemLocationSource, simulateur, écran Suivi en direct.
+  Étapes 3+ : StepSource, HeadingSource, KalmanPdrFusion, StrideCalibrator,
+  FusedLocationSource, ReplayPlayer.
+end note
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+hide empty members
+
+package "domain.sensing (ports et modèles)" #EAF7EA {
+  interface PositionSource {
+    +isAvailable : Boolean
+    +fixes(config : DetectionConfig) : Flow<GeoFix>
+  }
+  interface StepSource {
+    +steps : Flow<StepEvent>
+    +start()
+    +stop()
+  }
+  interface HeadingSource {
+    +headings : Flow<HeadingSample>
+    +start()
+    +stop()
+  }
+  class StepEvent <<data>> {
+    +timeNs : Long
+  }
+  class HeadingSample <<data>> {
+    +azimuthRad : Double
+    +accuracyRad : Double
+    +timeNs : Long
+  }
+  class PositionEstimate <<data>> {
+    +latitude : Double
+    +longitude : Double
+    +sigmaM : Double
+    +timeMs : Long
+    +sources : Set<SensorKind>
+    +steps : Int
+    +pathM : Double
+  }
+  enum SensorKind {
+    GPS
+    STEPS
+    HEADING
+  }
+  class DetectionConfig <<data>> {
+    +sampleRateHz : Int = 1
+    +confidenceK : Double = 3.0
+    +confirmations : Int = 3
+    +maxFixAccuracyM : Float
+    +defaultStrideM : Double = 0.70
+    +headingNoiseRad : Double
+    +stepDriftRatio : Double
+    +minRadiusM : Int = 1
+  }
+}
+
+package "domain.fusion" #EAF7EA {
+  interface PositionFusion {
+    +onFix(fix : GeoFix)
+    +onStep(step : StepEvent, heading : HeadingSample?)
+    +estimate() : PositionEstimate?
+    +reset()
+  }
+  class KalmanPdrFusion {
+    -east, north : Double
+    -variance : Double
+    +onFix() recale sur le GPS
+    +onStep() avance d'une foulée
+  }
+  class GpsOnlyFusion
+  class StrideCalibrator {
+    +strideM : Double
+    +observe(gpsDistanceM, steps, sigmaM)
+  }
+}
+
+package "domain.policy" #EAF7EA {
+  interface ExitPolicy {
+    +evaluate(zones, estimate) : List<ZoneVerdict>
+    +retainOnly(zoneIds)
+  }
+  class ConfidenceExitPolicy {
+    +seuil = rayon + k × σ
+  }
+  class LegacyThresholdPolicy
+  class ZoneVerdict <<data>> {
+    +zoneId : Long
+    +state : ZoneState
+    +distanceM : Double
+    +marginM : Double
+    +triggerDistanceM : Double
+    +sigmaM : Double
+    +exited : Boolean
+  }
+  enum ZoneState {
+    INSIDE
+    AMBIGUOUS
+    OUTSIDE
+    UNKNOWN
+  }
+}
+
+package "engine" #FFF6E5 {
+  class TrackingEngine {
+    +setZones(zones)
+    +start(scope)
+    +stop()
+    -handle(fix)
+  }
+  class TrackingBus {
+    +snapshot : StateFlow<TrackingSnapshot>
+  }
+  class TrackingSnapshot <<data>> {
+    +estimate : PositionEstimate?
+    +verdicts : List<ZoneVerdict>
+    +trail : List<TrailPoint>
+    +strideM : Double
+    +activeSources : Set<SensorKind>
+  }
+  interface AlertChannel {
+    +alert(exit : ZoneExit)
+  }
+  class TrackingPipeline {
+    +onFix(fix, zones) : PipelineOutput
+    +reset()
+  }
+  class SourceFactory {
+    +create(config, capabilities) : EngineSources
+  }
+}
+
+package "sensors / replay (adaptateurs)" #FDECEC {
+  class FusedLocationSource
+  class SystemLocationSource
+  class SensorStepSource
+  class RotationVectorHeadingSource
+  class NotificationAlertChannel
+  class ReplayPlayer
+  class TraceRecorder
+  class SimulatedPositionSource
+  class TraceScript
+}
+
+package "ui.live" #E8F1FF {
+  class LiveTrackingScreen <<Composable>>
+  class RadarCanvas <<Composable>> {
+    cercle du rayon, seuil, halo ±σ, trace
+  }
+  class LiveViewModel {
+    +snapshot : StateFlow<TrackingSnapshot>
+    +toggleRecording()
+    +resetStart()
+  }
+}
+
+PositionFusion <|.. KalmanPdrFusion
+PositionFusion <|.. GpsOnlyFusion
+KalmanPdrFusion --> StrideCalibrator
+ExitPolicy <|.. ConfidenceExitPolicy
+ExitPolicy <|.. LegacyThresholdPolicy
+ExitPolicy ..> ZoneVerdict
+ZoneVerdict --> ZoneState
+PositionFusion ..> PositionEstimate
+PositionEstimate --> SensorKind
+
+TrackingEngine --> PositionSource
+TrackingEngine --> StepSource
+TrackingEngine --> HeadingSource
+TrackingEngine --> AlertChannel
+TrackingEngine --> TrackingBus
+TrackingEngine --> TrackingPipeline
+TrackingPipeline --> PositionFusion
+TrackingPipeline --> ExitPolicy
+TrackingEngine --> DetectionConfig
+TrackingBus o-- TrackingSnapshot
+TrackingSnapshot o-- PositionEstimate
+TrackingSnapshot o-- ZoneVerdict
+SourceFactory ..> TrackingEngine : construit les sources
+
+PositionSource <|.. FusedLocationSource
+PositionSource <|.. SystemLocationSource
+PositionSource <|.. ReplayPlayer
+PositionSource <|.. SimulatedPositionSource
+SimulatedPositionSource --> TraceScript
+StepSource <|.. SensorStepSource
+StepSource <|.. ReplayPlayer
+HeadingSource <|.. RotationVectorHeadingSource
+HeadingSource <|.. ReplayPlayer
+AlertChannel <|.. NotificationAlertChannel
+TraceRecorder --> PositionSource
+TraceRecorder --> StepSource
+TraceRecorder --> HeadingSource
+
+LiveTrackingScreen --> LiveViewModel
+LiveTrackingScreen --> RadarCanvas
+LiveViewModel --> TrackingBus
+LiveViewModel --> TraceRecorder
+
+@enduml

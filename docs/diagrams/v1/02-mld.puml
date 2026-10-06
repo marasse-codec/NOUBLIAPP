@@ -1,5 +1,5 @@
 @startuml 02-mld
-title Noubli - Modèle logique de données (MLD) - SQLite / Room - version 2 de la base
+title Noubli - Modèle logique de données (MLD) - SQLite / Room
 hide circle
 skinparam linetype ortho
 skinparam shadowing false
@@ -47,31 +47,9 @@ entity "alert_event" as alert_event {
   acknowledged_at : INTEGER
 }
 
-entity "trace" as trace {
-  * id : INTEGER <<PK>>
-  --
-  * zone_id : INTEGER <<FK>>
-  * started_at : INTEGER
-  * simulated : INTEGER
-}
-
-entity "trace_point" as trace_point {
-  * id : INTEGER <<PK>>
-  --
-  * trace_id : INTEGER <<FK>>
-  * time_ms : INTEGER
-  * latitude : REAL
-  * longitude : REAL
-  * sigma_m : REAL
-  * distance_m : REAL
-  * path_m : REAL
-}
-
 app_user ||--o{ zone : "possède\n(ON DELETE CASCADE)"
 zone ||--o{ reminder_item : "contient\n(ON DELETE CASCADE)"
 zone ||--o{ alert_event : "déclenche\n(ON DELETE CASCADE)"
-zone ||--o{ trace : "est enregistrée\n(ON DELETE CASCADE)"
-trace ||--o{ trace_point : "contient\n(ON DELETE CASCADE)"
 
 note bottom of alert_event
   items_summary est volontairement dénormalisé :
@@ -83,11 +61,6 @@ note bottom of app_user
   Index : UNIQUE(username) - stocké en minuscules.
   Index de clé étrangère : zone(user_id),
   reminder_item(zone_id), alert_event(zone_id).
-end note
-
-note bottom of trace_point
-  Ajoutées en version 2 (migration 1 -> 2) : trajets enregistrés depuis
-  « Suivi en direct » pour le réglage terrain et le futur rejeu.
 end note
 
 @enduml

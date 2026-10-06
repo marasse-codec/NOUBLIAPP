@@ -1,0 +1,221 @@
+@startuml 03-classes-metier-donnees
+title Noubli - Diagramme de classes : domaine, données et services
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+hide empty members
+
+package "domain.model" #F2F7FF {
+  class User <<data>> {
+    +id : Long
+    +username : String
+  }
+  class Zone <<data>> {
+    +id : Long
+    +userId : Long
+    +name : String
+    +latitude : Double
+    +longitude : Double
+    +radiusM : Int
+    +isActive : Boolean
+    +createdAt : Long
+  }
+  class ReminderItem <<data>> {
+    +id : Long
+    +label : String
+  }
+  class AlertEvent <<data>> {
+    +id : Long
+    +zoneId : Long
+    +zoneName : String
+    +triggeredAt : Long
+    +distanceM : Int
+    +itemsSummary : String
+    +acknowledgedAt : Long?
+    +isAcknowledged : Boolean
+  }
+  class GeoFix <<data>> {
+    +latitude : Double
+    +longitude : Double
+    +accuracyM : Float
+    +timeMs : Long
+  }
+  class ZoneExit <<data>> {
+    +distanceM : Int
+  }
+  enum AuthError {
+    INVALID_USERNAME
+    WEAK_PASSWORD
+    USERNAME_TAKEN
+    WRONG_CREDENTIALS
+    +message : String
+  }
+  interface AuthResult <<sealed>>
+  class "AuthResult.Success" as AuthSuccess
+  class "AuthResult.Failure" as AuthFailure
+}
+
+package "domain (logique pure, testable en JVM)" #F2F7FF {
+  class ProximityEvaluator {
+    -maxAccuracyM : Float
+    -confirmationsNeeded : Int
+    -accuracyFactor : Double
+    +onLocation(zones, fix) : List<ZoneExit>
+    +retainOnly(zoneIds)
+    +reset()
+  }
+  object GeoMath {
+    +distanceMeters(lat1, lon1, lat2, lon2) : Double
+  }
+  object Validators {
+    +usernameError(raw) : String?
+    +passwordError(pw) : String?
+    +zoneNameError(name) : String?
+    +itemsError(labels) : String?
+    +radiusError(r) : String?
+    +latitudeError(v) : String?
+    +longitudeError(v) : String?
+  }
+  class PasswordHasher {
+    -iterations : Int
+    +newSalt() : String
+    +hash(password, salt) : String
+    +matches(password, salt, hash) : Boolean
+  }
+}
+
+package "data" #F4FBF4 {
+  class AuthRepository {
+    +register(username, password) : AuthResult
+    +login(username, password) : AuthResult
+    +logout()
+  }
+  class ZoneRepository {
+    +observeZones(userId) : Flow<List<Zone>>
+    +observeActiveZones(userId) : Flow<List<Zone>>
+    +findZone(zoneId, userId) : Zone?
+    +save(zone) : Long
+    +setActive(zoneId, userId, active)
+    +delete(zoneId, userId)
+  }
+  class AlertRepository {
+    +record(zone, distanceM) : AlertEvent
+    +observe(userId) : Flow<List<AlertEvent>>
+    +acknowledge(eventId)
+    +clear(userId)
+  }
+  class SessionStore {
+    +userId : StateFlow<Long?>
+    +setUser(id)
+  }
+}
+
+package "data.db (Room)" #F4FBF4 {
+  abstract class NoubliDatabase {
+    +userDao() : UserDao
+    +zoneDao() : ZoneDao
+    +alertEventDao() : AlertEventDao
+  }
+  interface UserDao
+  abstract class ZoneDao {
+    +saveWithItems(zone, labels) : Long
+  }
+  interface AlertEventDao
+  class UserEntity <<table app_user>>
+  class ZoneEntity <<table zone>>
+  class ReminderItemEntity <<table reminder_item>>
+  class AlertEventEntity <<table alert_event>>
+}
+
+package "location / notification (services Android)" #FFF8F0 {
+  class MonitoringService <<Service>> {
+    -evaluator : ProximityEvaluator
+    -zones : List<Zone>
+    +onStartCommand()
+    -handleLocation(location)
+    -raiseAlert(exit)
+  }
+  object MonitoringController {
+    +start(context)
+    +stop(context)
+  }
+  object MonitoringStatus {
+    +running : StateFlow<Boolean>
+  }
+  class CurrentLocationProvider {
+    +hasPermission() : Boolean
+    +isLocationEnabled() : Boolean
+    +getCurrent() : GeoFix?
+  }
+  class NotificationHelper {
+    +createChannels()
+    +buildMonitoringNotification(n)
+    +showForgetAlert(event, zone)
+  }
+  class AlertActionReceiver <<BroadcastReceiver>> {
+    +onReceive(context, intent)
+  }
+}
+
+class AppContainer {
+  +session : SessionStore
+  +authRepository : AuthRepository
+  +zoneRepository : ZoneRepository
+  +alertRepository : AlertRepository
+  +notifier : NotificationHelper
+  +locationProvider : CurrentLocationProvider
+}
+
+' --- Modèle métier ---
+User "1" -- "0..*" Zone : possède
+Zone "1" *-- "0..*" ReminderItem : contient
+Zone "1" -- "0..*" AlertEvent : déclenche
+ZoneExit --> Zone
+AuthResult <|.. AuthSuccess
+AuthResult <|.. AuthFailure
+AuthSuccess --> User
+AuthFailure --> AuthError
+
+' --- Logique ---
+ProximityEvaluator ..> GeoMath : utilise
+ProximityEvaluator ..> GeoFix
+ProximityEvaluator ..> ZoneExit : produit
+AuthRepository ..> Validators
+AuthRepository --> PasswordHasher
+
+' --- Données ---
+AuthRepository --> UserDao
+AuthRepository --> SessionStore
+ZoneRepository --> ZoneDao
+AlertRepository --> AlertEventDao
+NoubliDatabase *-- UserDao
+NoubliDatabase *-- ZoneDao
+NoubliDatabase *-- AlertEventDao
+UserDao ..> UserEntity
+ZoneDao ..> ZoneEntity
+ZoneDao ..> ReminderItemEntity
+AlertEventDao ..> AlertEventEntity
+UserEntity "1" -- "0..*" ZoneEntity
+ZoneEntity "1" -- "0..*" ReminderItemEntity
+ZoneEntity "1" -- "0..*" AlertEventEntity
+
+' --- Services ---
+MonitoringService --> ProximityEvaluator
+MonitoringService --> ZoneRepository
+MonitoringService --> AlertRepository
+MonitoringService --> NotificationHelper
+MonitoringService --> SessionStore
+MonitoringService ..> MonitoringStatus : met à jour
+MonitoringController ..> MonitoringService : démarre / arrête
+AlertActionReceiver --> AlertRepository
+NotificationHelper ..> AlertActionReceiver : PendingIntent
+
+AppContainer *-- AuthRepository
+AppContainer *-- ZoneRepository
+AppContainer *-- AlertRepository
+AppContainer *-- SessionStore
+AppContainer *-- NotificationHelper
+AppContainer *-- CurrentLocationProvider
+AppContainer *-- NoubliDatabase
+
+@enduml

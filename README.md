@@ -6,11 +6,23 @@ d'une zone où tu as des objets à ne pas oublier (clés, portefeuille, badge…
 
 ## Fonctionnement
 
-1. Tu crées un compte local, puis des **zones** (nom, position, distance d'alerte de 20 à 500 m).
+1. Tu crées un compte local, puis des **zones** (nom, position, distance d'alerte de 1 à 500 m).
 2. Dans chaque zone, tu listes les **objets** à emporter.
-3. Tu actives la **surveillance** : un service lit le GPS toutes les 5 s.
+3. Tu actives la **surveillance** : un service lit le GPS chaque seconde et le moteur de suivi décide de la sortie.
 4. Quand tu sors d'une zone, une notification (son + vibration) liste les objets ; « J'ai tout » l'acquitte.
 5. L'**historique** garde les alertes passées.
+
+## Version 2 (étape 2) : suivi précis et radar
+
+- **Rayon dès 1 m**, avec un curseur logarithmique (fin près de 1 m). L'alerte reste **prudente** :
+  elle part quand distance − rayon > 3 × précision du GPS, confirmé sur 3 mesures. Résultat simulé :
+  0 fausse alerte sur 400 essais de 5 min immobile ; avec un GPS à ±4 m, l'alerte part environ
+  12 à 16 s (≈ 16 m) après le départ. La fusion avec les pas et le cap (étape 3) vise à réduire ce délai.
+- **Suivi en direct** (bouton sur chaque zone) : radar (rayon, seuil de déclenchement, position ±σ, trajet),
+  distance, marge, précision, déplacement calculé.
+- **Simulation de sortie** (sans bouger ni notifier) et **enregistrement de trajets** en base (tables `trace`,
+  `trace_point`, migration 1 → 2).
+- Tous les réglages sont dans `DetectionConfig` ; `useLegacyPolicy = true` rétablit la règle de la v1.
 
 ## Compiler et installer l'APK de test
 
@@ -43,14 +55,20 @@ pour Noubli, sinon le système peut couper la surveillance en arrière-plan.
 
 ```
 app/src/main/java/com/noubli/app/
-├── domain/        Logique pure (testée en JVM) : ProximityEvaluator, GeoMath, Validators, PasswordHasher, modèles
-├── data/          Dépôts (Auth, Zone, Alert), SessionStore, mappers ; data/db = Room (entités, DAO, base)
-├── location/      MonitoringService (premier plan), CurrentLocationProvider, MonitoringController
+├── domain/        Logique pure (testée en JVM) : GeoMath, Validators, RadiusScale, PasswordHasher, modèles
+│   ├── sensing/   Ports et modèles capteurs : PositionSource, PositionEstimate, DetectionConfig
+│   ├── fusion/    PositionFusion, GpsOnlyFusion (la fusion pas + cap viendra ici)
+│   └── policy/    ExitPolicy, ConfidenceExitPolicy (v2), LegacyThresholdPolicy (v1)
+├── engine/        TrackingEngine (coroutines), TrackingPipeline (pur), TrackingBus, TrackingSnapshot, AlertChannel
+├── sensors/       Adaptateurs Android : SystemLocationSource (GPS), NotificationAlertChannel
+├── replay/        TraceScript + SimulatedPositionSource (simulation), TraceRecorder (enregistrement en base)
+├── data/          Dépôts (Auth, Zone, Alert, Trace), SessionStore, mappers ; data/db = Room (entités, DAO, base v2)
+├── location/      MonitoringService (cycle de vie, délègue au moteur), CurrentLocationProvider, MonitoringController
 ├── notification/  NotificationHelper, AlertActionReceiver (bouton « J'ai tout »)
-└── ui/            Compose : theme, common, auth, home, zone, history, NoubliNavHost
+└── ui/            Compose : theme, common, auth, home, zone, history, live (radar), NoubliNavHost
 ```
 
-Règles de code : fichiers de 300 lignes maximum (le plus long en compte 192), commentaires en français,
+Règles de code : fichiers de 300 lignes maximum (le plus long en compte 220), commentaires en français,
 dépendances injectées par constructeur (`AppContainer`).
 
 ## Documentation
@@ -68,7 +86,9 @@ dépendances injectées par constructeur (`AppContainer`).
 | 07-flux-detection-alerte | Flux : surveillance, détection, alerte |
 | 08-architecture-couches | Architecture en couches |
 | 09-architecture-deploiement | Architecture de déploiement |
+| v2/10-architecture-v2 | Architecture cible v2 (ports et adaptateurs) |
+| v2/11-classes-v2 | Classes v2 |
+| v2/12-flux-fusion-decision | Flux : mesure -> fusion -> décision |
+| v2/13-maquette-suivi-direct | Maquette de l'écran Suivi en direct |
 
-Pour régénérer les images : `java -jar plantuml.jar -tpng -o png docs/diagrams/*.puml`.
-# Noubliapp
-# Noubliapp
+Pour régénérer les images : `java -jar plantuml.jar -tpng -o png docs/diagrams/*.puml docs/diagrams/v2/*.puml`.

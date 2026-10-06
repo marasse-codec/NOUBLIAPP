@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.noubli.app.AppContainer
-import com.noubli.app.domain.Validators
+import com.noubli.app.domain.RadiusScale
 import com.noubli.app.ui.common.AppPermissions
 import com.noubli.app.ui.common.ErrorText
 import com.noubli.app.ui.common.NoubliTopBar
@@ -119,14 +119,15 @@ fun ZoneEditScreen(container: AppContainer, zoneId: Long, onClose: () -> Unit) {
             }
 
             SectionTitle("Distance d'alerte : ${form.radius.roundToInt()} m")
+            // Échelle logarithmique : fin près de 1 m, large jusqu'à 500 m (voir RadiusScale).
             Slider(
-                value = form.radius,
-                onValueChange = viewModel::onRadiusChange,
-                valueRange = Validators.MIN_RADIUS_M.toFloat()..Validators.MAX_RADIUS_M.toFloat()
+                value = RadiusScale.toPosition(form.radius.roundToInt()),
+                onValueChange = { viewModel.onRadiusChange(RadiusScale.toRadius(it).toFloat()) }
             )
             Text(
-                text = "L'alerte part quand tu t'éloignes de cette distance autour du point. " +
-                    "Un petit rayon alerte plus vite, mais le GPS reste précis à 10-20 m environ.",
+                text = "Dès 1 m, l'alerte reste prudente : elle part quand le GPS est sûr que tu es " +
+                    "sorti, donc un peu après la distance choisie quand le signal est mauvais " +
+                    "(l'écran « Suivi en direct » montre le seuil réel).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

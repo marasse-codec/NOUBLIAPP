@@ -14,6 +14,7 @@ import com.noubli.app.AppContainer
 import com.noubli.app.ui.auth.AuthScreen
 import com.noubli.app.ui.history.HistoryScreen
 import com.noubli.app.ui.home.HomeScreen
+import com.noubli.app.ui.live.LiveTrackingScreen
 import com.noubli.app.ui.zone.ZoneEditScreen
 import com.noubli.app.ui.zone.ZoneEditViewModel
 
@@ -24,9 +25,13 @@ object Routes {
     const val HISTORY = "history"
     const val ZONE_ID_ARG = "zoneId"
     const val ZONE_EDIT = "zone_edit/{$ZONE_ID_ARG}"
+    const val LIVE = "live/{$ZONE_ID_ARG}"
 
     /** Route concrète vers le formulaire (NEW_ZONE_ID pour une création). */
     fun zoneEdit(zoneId: Long) = "zone_edit/$zoneId"
+
+    /** Route vers l'écran « Suivi en direct » d'une zone. */
+    fun live(zoneId: Long) = "live/$zoneId"
 }
 
 /**
@@ -65,6 +70,7 @@ fun NoubliNavHost(container: AppContainer) {
                 container = container,
                 onAddZone = { navController.navigate(Routes.zoneEdit(ZoneEditViewModel.NEW_ZONE_ID)) },
                 onEditZone = { zoneId -> navController.navigate(Routes.zoneEdit(zoneId)) },
+                onOpenLive = { zoneId -> navController.navigate(Routes.live(zoneId)) },
                 onOpenHistory = { navController.navigate(Routes.HISTORY) }
             )
         }
@@ -75,6 +81,14 @@ fun NoubliNavHost(container: AppContainer) {
         ) { entry ->
             val zoneId = entry.arguments?.getLong(Routes.ZONE_ID_ARG) ?: ZoneEditViewModel.NEW_ZONE_ID
             ZoneEditScreen(container, zoneId, onClose = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Routes.LIVE,
+            arguments = listOf(navArgument(Routes.ZONE_ID_ARG) { type = NavType.LongType })
+        ) { entry ->
+            val zoneId = entry.arguments?.getLong(Routes.ZONE_ID_ARG) ?: return@composable
+            LiveTrackingScreen(container, zoneId, onBack = { navController.popBackStack() })
         }
 
         composable(Routes.HISTORY) {
